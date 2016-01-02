@@ -34,21 +34,19 @@ def MakePastComparables(playerList,measure,alg):
                     tempDF = tempDF[['RC']]
                     meanRC = tempDF['RC'].mean()
                     stdRC = tempDF['RC'].std()
+                    #tempDF['RC_norm'] = tempDF['RC']
+                    #tempDF['RC_norm'] = (tempDF.loc[:,'RC']-meanRC)/stdRC
                     tempDF['RC_norm'] = tempDF.apply(lambda x:(x['RC']-meanRC)/stdRC, axis=1)
                     compRC = tempDF['RC_norm'][playerID]
                     tempDF['dist'] = tempDF.apply(lambda x:(x['RC_norm']-compRC)**2, axis=1)
-                if measure == 'components':
+                if measure == 'component':
                     tempDF = tempDF[['H','X2B','X3B','HR','BB','SO','IBB']]
                     if alg == 'cossim':
                         tempDF['dist'] = tempDF.apply(lambda x:(fn_ComputeCosSim(x,tempDF.ix[playerID])), axis=1)
                     if alg == 'euclidean':
                         tempDF['dist'] = tempDF.apply(lambda x:(scipy.spatial.distance.euclidean(x,tempDF.ix[playerID])), axis=1)
-                # remove row corresponding to playerID
-                tempDF = tempDF[tempDF.index!=playerID]
-                # sort tempDF in increasing order of RC_dist
-                tempDF = tempDF.sort(['dist'])
-                # create RC_dist_top10 dataframe with playerID & RC_dist
-                tempDF = tempDF.ix[0:19]
+                # remove row corresponding to playerID, sort by nearest distance, and keep top 20 only
+                tempDF = tempDF[tempDF.index!=playerID].sort_values(by=['dist']).ix[0:19]
                 # create result dict
                 result = {}
                 # add RC_dist_top10 key with its dataframe as its value to result dict        
@@ -128,7 +126,7 @@ def fn_ComputeCosSim(vec1,vec2):
 ### FOR STEP 1
 ## FOR INPUTS
 # read in hitting table (with age and position already in)
-hittingDF = pd.read_csv('C:/Users/535873/Documents/Python Scripts/BAH Data Sci Course (Fall 2015)/Capstone/hittingTable.csv')
+hittingDF = pd.read_csv('C:/Users/Tim/Documents/BAH Data Sci Course (Fall 2015)/Capstone/hittingTable.csv')
 playerIDs = hittingDF['playerID'].unique()
 positions = hittingDF['POS'].unique()
 player_pos_mapping = {}
@@ -201,10 +199,15 @@ player_age_sample = player_age_sample.merge(ages,left_index=True,right_index=Tru
 player_age_sample.columns = ['player','age']
     # a dataframe with the euclidean and cossim distance scores to both RC and the RC components
     # for every other playerID in that age and position group
-sample_comparables_RC_Euc = MakePastComparables(player_age_sample['player'],'RC','euclidean')
-sample_comparables_component_Euc = MakePastComparables(player_age_sample['player'],'component','euclidean')
-sample_comparables_component_cossim = MakePastComparables(player_age_sample['player'],'component','cossim')
+sample_comparables_RC_Euc = MakePastComparables(player_age_sample.loc[:,'player'],'RC','euclidean')
+sample_comparables_component_Euc = MakePastComparables(player_age_sample.loc[:,'player'],'component','euclidean')
+sample_comparables_component_cossim = MakePastComparables(player_age_sample.loc[:,'player'],'component','cossim')
 # create another dictionary of dataframes keyed on playerID and age (actually, one dictionary for each of the distance combinations from the previous step)
+for playerID in player_age_sample.loc[:,'player']:
+    age = player_age_sample.loc[playerID,'age']
+    curRC = past_stats[player_pos_mapping[playerID]][age].loc[playerID,'RC']
+    maxAge = player_age_mapping[playerID].max()
+    refFutureRC = past_stats[player_pos_mapping[playerID]][maxAge].loc[playerID,'RC'] - curRC
     # each dataframe has the top N closest matches from the previous step
     # and also adds in the future performance for each of those matches
 # lastly, for a few players, make a scatterplot of distance vs. future performance from the last dictionary above
