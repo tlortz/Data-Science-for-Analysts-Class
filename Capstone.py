@@ -127,6 +127,9 @@ def fn_ComputeCosSim(vec1,vec2):
 ## FOR INPUTS
 # read in hitting table (with age and position already in)
 hittingDF = pd.read_csv('C:/Users/Tim/Documents/BAH Data Sci Course (Fall 2015)/Capstone/hittingTable.csv')
+# weed out pitchers and deadball-era hitters
+hittingDF = hittingDF.ix[hittingDF['POS']!='P']
+hittingDF = hittingDF.ix[hittingDF['yearID']>=1920]
 playerIDs = hittingDF['playerID'].unique()
 positions = hittingDF['POS'].unique()
 player_pos_mapping = {}
@@ -203,11 +206,56 @@ sample_comparables_RC_Euc = MakePastComparables(player_age_sample.loc[:,'player'
 sample_comparables_component_Euc = MakePastComparables(player_age_sample.loc[:,'player'],'component','euclidean')
 sample_comparables_component_cossim = MakePastComparables(player_age_sample.loc[:,'player'],'component','cossim')
 # create another dictionary of dataframes keyed on playerID and age (actually, one dictionary for each of the distance combinations from the previous step)
-for playerID in player_age_sample.loc[:,'player']:
-    age = player_age_sample.loc[playerID,'age']
-    curRC = past_stats[player_pos_mapping[playerID]][age].loc[playerID,'RC']
-    maxAge = player_age_mapping[playerID].max()
-    refFutureRC = past_stats[player_pos_mapping[playerID]][maxAge].loc[playerID,'RC'] - curRC
+# or simply find the average errors for each of the comparable sets for each player in the sample
+player_age_sample = player_age_sample.set_index('player')
+player_age_sample['pos'] = ""
+player_age_sample['avgError_RC_Euc'] = 0
+player_age_sample['avgError_component_Euc'] = 0
+player_age_sample['avgError_component_cossim'] = 0
+for playerID in player_age_sample.index:
+    refAge = player_age_sample.loc[playerID][0]
+    refPos = player_pos_mapping[playerID][0]
+    if (playerID in future_stats[refPos][refAge].index and refAge in sample_comparables_RC_Euc[playerID].keys() and refAge in sample_comparables_component_Euc[playerID].keys() and refAge in sample_comparables_component_cossim[playerID].keys()):
+        refFutureRC = future_stats[refPos][refAge].loc[playerID,'RC']
+        #refTotalDist_RC_Euc = sample_comparables_RC_Euc[playerID][refAge]['Comparables_Distances'].sum()
+        #refMaxDist_RC_Euc = sample_comparables_RC_Euc[playerID][refAge]['Comparables_Distances'].max()
+        #refTotalDist_component_Euc = sample_comparables_component_Euc[playerID][refAge]['Comparables_Distances'].sum()
+        #refMaxDist_component_Euc = sample_comparables_component_Euc[playerID][refAge]['Comparables_Distances'].max()
+        #refTotalDist_component_cossim = sample_comparables_component_cossim[playerID][refAge]['Comparables_Distances'].sum()
+        #refMaxDist_component_cossim = sample_comparables_component_cossim[playerID][refAge]['Comparables_Distances'].max()
+        refInvDist_RC_Euc = 1/sample_comparables_RC_Euc[playerID][refAge]['Comparables_Distances']
+        refInvScaledDist_RC_Euc = refInvDist_RC_Euc/refInvDist_RC_Euc.sum()
+        refInvDist_component_Euc = 1/sample_comparables_component_Euc[playerID][refAge]['Comparables_Distances']
+        refInvScaledDist_component_Euc = refInvDist_component_Euc/refInvDist_component_Euc.sum()
+        refInvDist_component_cossim = 1/sample_comparables_component_cossim[playerID][refAge]['Comparables_Distances']
+        refInvScaledDist_component_cossim = refInvDist_component_cossim/refInvDist_component_cossim.sum()
+        errorVec_RC_Euc = []
+        errorVec_component_Euc = []
+        errorVec_component_cossim = []
+        for compPlayer in sample_comparables_RC_Euc[playerID][refAge]['Comparables_Distances'].index:
+            if compPlayer in future_stats[refPos][refAge].index:
+                compFutureRC = future_stats[refPos][refAge].loc[compPlayer,'RC']
+                errorRC = abs(compFutureRC-refFutureRC)/refFutureRC
+                # weigh each error score by the scaled inverse distance of compPlayer, and scale by the total distance
+                adjustedErrorRC = errorRC * refInvScaledDist_RC_Euc[compPlayer]
+                errorVec_RC_Euc.append(adjustedErrorRC)
+        for compPlayer in sample_comparables_component_Euc[playerID][refAge]['Comparables_Distances'].index:
+            if compPlayer in future_stats[refPos][refAge].index:        
+                compFutureRC = future_stats[refPos][refAge].loc[compPlayer,'RC']
+                errorRC = abs(compFutureRC-refFutureRC)/refFutureRC
+                # weigh each error score by the distance of compPlayer, and scale by the total distance
+                adjustedErrorRC = errorRC * refInvScaledDist_component_Euc[compPlayer]
+                errorVec_component_Euc.append(errorRC)
+        for compPlayer in sample_comparables_component_cossim[playerID][refAge]['Comparables_Distances'].index:
+            if compPlayer in future_stats[refPos][refAge].index:
+                compFutureRC = future_stats[refPos][refAge].loc[compPlayer,'RC']
+                errorRC = abs(compFutureRC-refFutureRC)/refFutureRC
+                # weigh each error score by the distance of compPlayer, and scale by the total distance
+                adjustedErrorRC = errorRC * refInvScaledDist_component_cossim[compPlayer]
+                errorVec_component_cossim.append(errorRC)
+        player_age_sample.loc[playerID,'avgError_RC_Euc'] = np.asarray(errorVec_RC_Euc).sum()
+        player_age_sample.loc[playerID,'avgError_component_Euc'] = np.asarray(errorVec_component_Euc).sum()
+        player_age_sample.loc[playerID,'avgError_component_cossim'] = np.asarray(errorVec_component_cossim).sum()
     # each dataframe has the top N closest matches from the previous step
     # and also adds in the future performance for each of those matches
 # lastly, for a few players, make a scatterplot of distance vs. future performance from the last dictionary above
