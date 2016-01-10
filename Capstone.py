@@ -21,6 +21,7 @@ import scipy
 from scipy import stats
 from scipy import spatial
 import random
+import bokeh
 
 def MakePastComparables(playerList,measure,alg):
     RC_past_comparables = {}
@@ -256,8 +257,20 @@ for playerID in player_age_sample.index:
         player_age_sample.loc[playerID,'avgError_RC_Euc'] = np.asarray(errorVec_RC_Euc).sum()
         player_age_sample.loc[playerID,'avgError_component_Euc'] = np.asarray(errorVec_component_Euc).sum()
         player_age_sample.loc[playerID,'avgError_component_cossim'] = np.asarray(errorVec_component_cossim).sum()
-    # each dataframe has the top N closest matches from the previous step
-    # and also adds in the future performance for each of those matches
+# summarize eror rates by age and plot them
+player_age_sample_ageGB = player_age_sample.groupby(['age']).mean()
+#from bokeh.plotting import figure, output_file, show
+#p = figure(plot_width=400, plot_height=300)
+#p.line(player_age_sample['avgError_RC_Euc'],player_age_sample['avgError_component_Euc'],player_age_sample['avgError_component_cossim'])
+#show(p)
+#output_file('similarity_error_summaries')
+plt.plot(player_age_sample_ageGB.index,player_age_sample_ageGB['avgError_RC_Euc'],label='RC comparison, Euclidean distance')
+plt.plot(player_age_sample_ageGB['avgError_component_Euc'],label='component comparison, Euclidean distance')
+plt.plot(player_age_sample_ageGB['avgError_component_cossim'],label='component comparison, cosine distance')
+plt.legend(prop={'size':8})
+plt.xlabel('age of comparison') 
+plt.ylabel('weighted average error among 20 closest matches')
+plt.show
 # lastly, for a few players, make a scatterplot of distance vs. future performance from the last dictionary above
     # then overlay the actual performance to see how the estimates worked out
 
