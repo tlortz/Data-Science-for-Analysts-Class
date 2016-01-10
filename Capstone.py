@@ -273,5 +273,5 @@ plt.ylabel('weighted average error among 20 closest matches')
 plt.show
 # lastly, for a few players, make a scatterplot of distance vs. future performance from the last dictionary above
     # then overlay the actual performance to see how the estimates worked out
-
+player_age_sample.to_csv('C:\\Users\\Tim\\Documents\\BAH Data Sci Course (Fall 2015)\\Capstone\\PlayerSampleDistanceMetricComparison_20160109.csv')
 
